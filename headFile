@@ -1,0 +1,338 @@
+#include"teris.h"
+int pos_x, pos_y;
+int pausetime = 300;//暂停时间，默认为220ms
+int score = 0;//得分情况
+struct Block tian, tu, lf, li, yu;//分别为田字型，土字型，L型，直线型，与字型
+struct Block runningBlock, nextBlock;//正在运动的方块
+int dir;//方向,3是向左，4是向右，默认向下
+#define WIDTH 23
+#define HEIGHT 15
+vector<vector<int>>sumBlock(WIDTH, vector<int>(HEIGHT, 0));//保存所有达到底部的方块
+void Pos(short x, short y)//移动光标
+{
+	COORD pos;
+	pos.X = x;
+	pos.Y = y;
+	HANDLE hOutPut = GetStdHandle(STD_OUTPUT_HANDLE);
+	SetConsoleCursorPosition(hOutPut, pos);
+}
+void CreateEnvironment()//创建俄罗斯方块运行环境
+{
+	for (int i = 0; i < 17; i ++)
+	{
+		Pos(i, 23);
+		cout << "*";
+	}
+	for (int j = 0; j < 24; j++)
+	{
+		Pos(0, j);
+		cout << "*";
+		Pos(16, j);
+		cout << "*";
+	}
+}
+
+template<typename T>void rightChange(T &a)//改变每种方块的形状
+{
+	vector<vector<int>>temp(3, { 0, 0, 0 });
+	for (int i = 0; i < 3; i++)
+	{
+		for (int j = 2; j >= 0; j--)
+			temp[i][2 - j] = a.form[j][i];
+	}
+	a.form = temp;
+
+}
+void leftChange(Block &a)
+{
+	vector<vector<int>>temp(3, { 0, 0, 0 });
+	for (int i = 0; i < 3; i++)
+	{
+		for (int j = 2; j >= 0; j--)
+			temp[2 - j][i] = a.form[i][j];
+	}
+	a.form = temp;
+}
+void randomOneForm(int n, Block &a)//当确定某一种形状，随机选择其形状的一种形式
+{
+
+	while (n > 0)
+	{
+		rightChange(a);
+		n--;
+	}
+}
+template <typename T> void printForm(T a)//打印出方块形状
+{
+	int m = a.x - 1, n = a.y - 1;
+	for (int i = 0; i < 3; i++)
+	{
+		Pos(m, n);
+		for (int j = 0; j < 3; j++)
+		{
+			if (a.form[i][j] == 1)//1打印出来，0打印空格
+				cout << "*";
+				
+			else
+			{
+				cout << " ";
+			}
+		}
+		n++;
+	}
+}
+void deleteCurrentBlock(const Block &a)
+{
+	int m = a.x - 1, n = a.y - 1;
+	for (int i = 0; i < 3; i++)
+	{
+		Pos(m, n);
+		for (int j = 0; j < 3; j++)
+		{
+			cout << " ";
+
+		}
+		n++;
+	}
+}
+void printSumBlock()//0-21,0-26 检测最底层是否需要消除，并打印；
+{
+	vector<vector<int>>temp(WIDTH, vector<int>(HEIGHT, 0));
+	int cnt = WIDTH-1;
+	for (int i = WIDTH-1; i >=0; i--)//底层是否全为1；
+	{
+		if (sumBlock[i] == vector<int>(HEIGHT, 1))
+			score = score + 5;
+		bool flag = true;
+		for (int j = 0; j < HEIGHT; j++)
+		{
+			if (sumBlock[i][j] != 1) flag = false;
+		}
+		if (flag == false)
+		{
+			temp[cnt] = sumBlock[i];
+			cnt--;
+		}
+	} 
+	
+	sumBlock = temp;
+	int m = 1, n = 22;
+	for (int i = WIDTH - 1; i >= 0; i--)
+	{
+		Pos(m, n);
+		for (int j = 0; j < HEIGHT; j++)
+		{
+			if (sumBlock[i][j] == 1)
+				cout << "*";
+			else
+			cout << " ";
+		}
+		n--;
+	}
+}
+int GameOver()
+{
+	int cnt = 0;
+	for (int i = WIDTH - 1; i >= 0; i--)
+	{
+		if (sumBlock[i] != vector<int>(HEIGHT, 0))cnt++;
+		else break;
+	}
+	if (cnt > 15) return 1;
+	else return 0;
+}
+void CreateNextBlock()//随机产生右侧的下一个方块
+{
+	tian.form = { { 1, 1, 1 }, { 1, 1, 1 }, { 1, 1, 1 } };//初始化各种方块
+	tu.form = { { 0, 1, 0 }, { 0, 1, 0 }, { 1, 1, 1 } };
+	li.form = { { 0, 1, 0 }, { 0, 1, 0 }, { 0, 1, 0 } };
+	lf.form = { { 1, 0, 0 }, { 1, 0, 0 }, { 1, 1, 1 } };
+	yu.form = { { 1, 0, 0 }, { 1, 1, 0 }, { 0, 1, 0 } };
+	default_random_engine e((int)time(0));
+	uniform_int_distribution<unsigned>u1(1, 5);
+	uniform_int_distribution<unsigned>u2(1, 4);
+	int temp = u1(e);
+	int temp2 = u2(e);
+	if (temp == 1)
+	{
+
+		nextBlock = tian;
+	}
+	if (temp == 2)
+	{
+		nextBlock = li;
+	}
+	if (temp == 3)
+	{
+		nextBlock = tu;
+	}
+	if (temp == 4)
+	{
+		nextBlock = lf;
+	}
+	if (temp == 5)
+	{
+		nextBlock = yu;
+	}
+	randomOneForm(temp2, nextBlock);
+
+}
+
+//void buttornToForm()
+//{
+//	if (GetAsyncKeyState(VK_RIGHT))
+//	{
+//		rightChange(tu);
+//		
+//
+//
+//	}
+//	if (GetAsyncKeyState(VK_LEFT))
+//	{
+//		leftChange(tu);
+//		
+//	}
+//	printForm(tu);
+//}
+bool stopMoving()//检查方块下落是否符合条件！！
+{
+
+	int m = runningBlock.y +1;
+	for (int i = 2; i >= 0; i--)
+	{
+		int n = runningBlock.x -2;
+		for (int j = 0; j < 3; j++)
+		{
+			if ( runningBlock.y == WIDTH - 2 || sumBlock[m + 1][n] == 1 && runningBlock.form[i][j] == 1)
+				return true;
+			n++;
+		}
+		m--;
+	}
+	return false;
+}
+void blockMoving()//方块下落，如果达到终止条件融合
+{
+
+
+	if (dir == 3)
+	{
+		deleteCurrentBlock(runningBlock);
+		if (runningBlock.x - 1 >= 2)
+			runningBlock.x = runningBlock.x - 1;
+		printForm(runningBlock);
+	}
+	if (dir == 4)
+	{
+		deleteCurrentBlock(runningBlock);
+		if (runningBlock.x + 1 <HEIGHT)
+			runningBlock.x = runningBlock.x + 1;
+		printForm(runningBlock);
+	}
+	deleteCurrentBlock(runningBlock);
+	runningBlock.y = runningBlock.y + 1;
+	printForm(runningBlock);
+	Pos(40, 10);
+	cout << "中心坐标：" << runningBlock.x << " " << runningBlock.y;
+}
+void joinSumBlock()
+{
+	int m = runningBlock.y + 1;
+	for (int i = 2; i >= 0; i--)
+	{
+		int n = (runningBlock.x - 2);
+		for (int j = 0; j < 3; j++)
+		{
+			if (sumBlock[m][n] == 0)//只融合空的，有方块的不融合
+				sumBlock[m][n] = runningBlock.form[i][j];
+			n++;
+		}
+		m--;
+	}
+}
+void Pause()
+{
+	while (true)
+	{
+		Sleep(600);
+		if (GetAsyncKeyState(VK_SPACE))
+			break;
+	}
+}
+void GamesCircle()
+{
+	CreateNextBlock();
+	nextBlock.x = 12;
+	nextBlock.y = 3;
+	runningBlock = nextBlock;
+	printForm(runningBlock);
+	Pos(40, 2);
+	cout << "你的分数是：" << score;
+	CreateNextBlock();
+	while (true)
+	{
+
+		Pos(40, 4);
+		cout << "下一个：" << endl;
+
+		printForm(nextBlock);
+		if (GameOver())
+		{
+			Pos(40, 9);
+			cout << "很遗憾您失败了";
+			break;
+		}
+		if (stopMoving())//检查达到终止条件，合并方块与sumBlock
+		{
+			joinSumBlock();
+			Sleep(50);
+			printSumBlock();//打印出sumBlock
+			runningBlock = nextBlock;
+			runningBlock.x = 12;
+			runningBlock.y = 3;
+			printForm(runningBlock);
+			pausetime = 300;
+			CreateNextBlock();
+		}
+		dir = 0;
+		if (GetAsyncKeyState(VK_LEFT))
+			dir = 3;
+		else if (GetAsyncKeyState(VK_RIGHT))
+			dir = 4;
+		else if (GetAsyncKeyState(VK_UP))
+			Pause();
+		else if (GetAsyncKeyState(VK_DOWN))
+		{
+			if (pausetime >= 150)
+				pausetime -= 10;
+		}
+		blockMoving();
+		if (GetAsyncKeyState(VK_SPACE))
+			rightChange(runningBlock);
+		Sleep(pausetime);
+
+	}
+}
+void Start()
+{
+	for (int i = 0; i < 4; i++)
+		cout << endl;
+	cout << "				欢迎试玩俄罗斯方块！" << endl;
+	cout << endl;
+	cout << "游戏说明：" << endl;
+	cout << endl;
+	cout << "←:向左移动方块  →：向右移动方块  ↓：加速  pause:暂停  space:变换形状" << endl;
+	cout << endl;
+	cout << endl;
+	cout << "				 于2016年10月30日川大望江校区工学图书馆" << endl;
+	system("pause");
+	system("cls");
+}
+void End()
+{
+	system("cls");
+	cout << endl;
+	cout << "					您失败了！！" << endl;
+	cout << "					你的得分是： " << score << endl;
+	cout << endl;
+}
