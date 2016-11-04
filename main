@@ -1,0 +1,9 @@
+#include"teris.h"
+int main()
+{
+	Start();
+	CreateEnvironment();
+	GamesCircle();
+	End();
+	return 0;
+}
